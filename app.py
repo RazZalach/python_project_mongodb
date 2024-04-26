@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 import secrets
 import string
+import base64
 
 
 load_dotenv()
@@ -27,7 +28,7 @@ CORS(app)
 @app.route('/')
 def home():
     users = list(users_collection.find({}))
-    users = [{"username": user["username"], "email": user["email"],"_id":user['_id'],"password":user["password"]} for user in users]
+    users = [{"username": user["username"], "email": user["email"],"_id":user['_id'],"password":user["password"],"image":user['image'].decode('utf-8')} for user in users]
     return render_template('home.html', users=users)
 
 
@@ -38,27 +39,28 @@ def home():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        file = request.files['image']
+        # Read the contents of the file
+        file_contents = file.read()
+        # Encode the file contents to base64
+        encoded_contents = base64.b64encode(file_contents)
+        # Extract other registration data from the request
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
 
-        # בדיקה אם האימייל כבר קיים במסד הנתונים
-        if users_collection.find_one({"email": email}):
-            return "This email is already registered. Try another email.</br> <a href='/register'>Try Again</a>"
-
-        # הצפנת הסיסמה
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12))
-        
-        # שמירת המשתמש במסד הנתונים
+
+        # Create a user object with image and other data
         user_data = {
             "username": username,
             "email": email,
-            "password": hashed_password  # שומרים את הסיסמה המוצפנת
+            "password": hashed_password,
+            "image": encoded_contents
         }
+        # Insert the user object into the users collection
         users_collection.insert_one(user_data)
-
-        return "Registration successful! </br> <a href='/'>Home</a>"
-    
+        return "Registration successful! User added to the database."
     return render_template('register.html')
 
 ## read a user data 
@@ -84,6 +86,7 @@ def update_user(user_id):
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        new_image = request.files['image'] if 'image' in request.files else None
 
         # Prepare the updated data
         update_data = {}
@@ -93,6 +96,12 @@ def update_user(user_id):
             update_data['email'] = email
         if password:
             update_data['password'] = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12))
+        if new_image:
+            # Read the contents of the file
+            file_contents = new_image.read()
+            # Encode the file contents to base64
+            encoded_contents = base64.b64encode(file_contents)
+            update_data['image'] = encoded_contents
 
         # Update the user in the database
         users_collection.update_one({'_id': ObjectId(user_id)}, {'$set': update_data})

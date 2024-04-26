@@ -6,7 +6,7 @@
 </head>
 <body>
     <h1>Update User</h1>
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" value="{{ user.username }}" required><br><br>
 
@@ -16,6 +16,9 @@
         <label for="password">Password:</label>
         <input type="password" id="password" name="password"><br><br>
         <p>Leave password blank to keep current.</p>
+
+        <label for="image">Profile Image:</label>
+        <input type="file" id="image" name="image" accept="image/*"><br><br>
 
         <button type="submit">Update User</button>
     </form>
