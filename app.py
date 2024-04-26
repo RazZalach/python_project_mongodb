@@ -1,10 +1,14 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for,jsonify
+import requests
 from pymongo import MongoClient
 import bcrypt
 from bson.objectid import ObjectId 
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
+import secrets
+import string
+
 
 load_dotenv()
 # פרטי התחברות למסד הנתונים
@@ -15,6 +19,9 @@ users_collection = db['users']
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
+
+
+
 
 
 @app.route('/')
@@ -107,6 +114,84 @@ def delete_user(user_id):
         return redirect(url_for('home'))
     except Exception as e:
         return str(e)  
+    
+
+## using api -- weather example using weather.html + js to handle responses from server 
+
+api_key = os.getenv('API_KEY')
+api_base_url = os.getenv('API_BASE_URL')
+
+@app.route('/weather', methods=['GET', 'POST'])
+def weather():
+    if request.method == 'GET':
+        return render_template('weather.html')
+    
+    if request.method == 'POST':
+        city = request.form.get('city')
+        location_code = get_location_code(city)
+        if location_code:
+            current_weather = get_current_weather(location_code)
+            return jsonify(current_weather)
+        else:
+            return jsonify({'error': 'City not found'})
+    
+def get_location_code(city):
+    url = f'{api_base_url}/locations/v1/cities/autocomplete/?apikey={api_key}&q={city}&language=en-us'
+    response = requests.get(url)
+    data = response.json()
+    if data:
+        return data[0]['Key']
+    else:
+        return None    
+    
+def get_current_weather(location_code):
+    url = f'{api_base_url}/currentconditions/v1/{location_code}?apikey={api_key}&language=en-us&details=true'
+    print(url)
+    response = requests.get(url)
+    data = response.json()
+    if data:
+        return {
+            'date': data[0]['LocalObservationDateTime'],
+            'temperature': data[0]['Temperature']['Metric']['Value'],
+            'weather_text': data[0]['WeatherText'],
+            'weather_icon': data[0]['WeatherIcon']
+        }
+    else:
+        return None
+
+
+
+
+## bitly project page - 
+
+
+@app.route('/shorten', methods=['GET','POST'])
+def shorten_url():
+    if request.method == 'GET':
+        return render_template('shorten_url.html')
+    if request.method == 'POST':
+        long_url = request.form['long_url']
+        short_identifier = generate_unique_identifier()
+        url_mapping = {
+            'short_url': short_identifier,
+            'long_url': long_url
+        }
+        db.url_mappings.insert_one(url_mapping)
+        return f"Shortened URL: <a href='/u/{short_identifier}'>{request.host+'/' + short_identifier}</a>"
+
+@app.route('/u/<short_identifier>')
+def redirect_to_long_url(short_identifier):
+    url_mapping = db.url_mappings.find_one({'short_url': short_identifier})
+    
+    if url_mapping:
+        return redirect(url_mapping['long_url'])
+    else:
+        return "Short URL not found"
+
+def generate_unique_identifier(length=8):
+    """Generate a random alphanumeric string."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

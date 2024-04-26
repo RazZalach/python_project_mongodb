@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather</title>
+    <style>
+        .weather-icon {
+            width: 50px; /* Adjust size as needed */
+            height: 50px; /* Adjust size as needed */
+        }
+    </style>
+</head>
+<body>
+    <h1>Weather Information</h1>
+    <form id="weather-form">
+        <label for="city">Enter City Name:</label>
+        <input type="text" id="city" name="city">
+        <button type="submit">Get Weather</button>
+    </form>
+    <div id="weather-info"></div>
+
+    <script>
+        async function getWeather() {
+            const form = document.getElementById('weather-form');
+            form.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const city = formData.get('city');
+    
+                const response = await fetch('/weather', {
+                    method: 'POST',
+                    body: JSON.stringify({ city }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                console.log(data);
+                renderWeather(data);
+            });
+        }
+    
+        function renderWeather(data) {
+            const weatherInfo = document.getElementById('weather-info');
+            weatherInfo.innerHTML = ''; // Clear previous content
+            weatherInfo.innerHTML = `
+                <p>Date: ${data.date}</p>
+                <p>Temperature: ${data.temperature}°C</p>
+                <p>Weather: ${data.weather_text}</p>
+                <img class="weather-icon" src="https://developer.accuweather.com/sites/default/files/${formatWeatherIcon(data.weather_icon)}-s.png" alt="Weather Icon">
+            `;
+        }
+        function formatWeatherIcon(icon) {
+            return icon < 10 ? '0' + icon : icon;
+        }
+        window.onload = getWeather;
+    </script>
+    
+</body>
+</html>
